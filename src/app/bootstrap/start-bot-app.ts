@@ -17,6 +17,7 @@ import { getRuntimePaths } from "../../runtime/paths.js";
 import { clearServiceStateFile } from "../../runtime/service/manager.js";
 import { getServiceStateFilePathFromEnv, isServiceChildProcess } from "../../runtime/service/env.js";
 import { getLogFilePath, initializeLogger, logger } from "../../utils/logger.js";
+import { sessionTopicManager } from "../managers/session-topic-manager.js";
 import { safeBackgroundTask } from "../../utils/safe-background-task.js";
 
 const SHUTDOWN_TIMEOUT_MS = 5000;
@@ -54,6 +55,15 @@ export async function startBotApp(): Promise<void> {
   await reconcileStoredModelSelection();
   registerOpenCodeReadyRefreshHandler();
   const bot = createBot();
+
+  // Initialize per-session topic manager if forum mode is configured
+  if (config.telegram.forumChatId) {
+    sessionTopicManager.initialize(bot, config.telegram.forumChatId);
+    logger.info(
+      `[App] Session topic manager initialized with forumChatId=${config.telegram.forumChatId}`,
+    );
+  }
+
   await scheduledTaskRuntime.initialize(
     bot,
     createScheduledTaskDeliverySender(bot.api, config.telegram.allowedUserId),
@@ -105,6 +115,7 @@ export async function startBotApp(): Promise<void> {
     cleanupBotRuntime(`app_shutdown_${signal.toLowerCase()}`);
     opencodeAutoRestartService.stop();
     scheduledTaskRuntime.shutdown();
+    sessionTopicManager.cleanup();
 
     shutdownTimeout = setTimeout(() => {
       logger.warn(`[App] Shutdown did not finish in ${SHUTDOWN_TIMEOUT_MS}ms, forcing exit.`);

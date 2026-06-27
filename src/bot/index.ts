@@ -8,6 +8,8 @@ import {
   restoreAttachedCurrentSession,
 } from "../app/services/attach-service.js";
 import { opencodeReadyLifecycle } from "../opencode/ready-lifecycle.js";
+import { getCurrentSession } from "../app/services/session-service.js";
+import { sessionTopicManager } from "../app/managers/session-topic-manager.js";
 import { logger } from "../utils/logger.js";
 import { safeBackgroundTask } from "../utils/safe-background-task.js";
 import { withTelegramRateLimitRetry } from "../utils/telegram-rate-limit-retry.js";
@@ -91,6 +93,33 @@ export function createBot(): Bot<Context> {
 
     if (method === "sendMessage") {
       logger.debug(`[Bot API] sendMessage to chat ${(payload as { chat_id?: number }).chat_id}`);
+    }
+
+    // Forum topic routing: redirect messages to the session's forum topic
+    if (
+      config.telegram.forumChatId &&
+      (method === "sendMessage" ||
+        method === "sendDocument" ||
+        method === "sendPhoto" ||
+        method === "sendVoice" ||
+        method === "sendAudio" ||
+        method === "sendAnimation" ||
+        method === "sendVideo" ||
+        method === "editMessageText" ||
+        method === "editMessageCaption")
+    ) {
+      const session = getCurrentSession();
+      if (session) {
+        const topicId = sessionTopicManager.lookupTopicId(session.id);
+        if (topicId) {
+          const p = payload as Record<string, unknown>;
+          p.chat_id = Number(config.telegram.forumChatId);
+          p.message_thread_id = topicId;
+          logger.debug(
+            `[Bot API] Routed ${method} to forum chat ${p.chat_id} topic ${topicId}`,
+          );
+        }
+      }
     }
 
     return withTelegramRateLimitRetry(() => prev(method, payload, signal), {

@@ -64,6 +64,7 @@ import { questionManager } from "../../app/managers/question-manager.js";
 import { showCurrentQuestion } from "../menus/question-menu.js";
 import { showPermissionRequest } from "../menus/permission-menu.js";
 import { clearAllInteractionState } from "../../app/managers/interaction-manager.js";
+import { sessionTopicManager } from "../../app/managers/session-topic-manager.js";
 import { stopEventListening, subscribeToEvents } from "../../opencode/events.js";
 
 const TELEGRAM_DOCUMENT_CAPTION_MAX_LENGTH = 1024;
@@ -310,6 +311,22 @@ class EventSubscriptionService implements BotEventSubscriptionService {
 
     if (!config.bot.trackBackgroundSessions) {
       backgroundSessionTracker.clear();
+    }
+
+    // Resolve/create forum topic for the current session if forum mode is active
+    if (config.telegram.forumChatId) {
+      const currentSession = getCurrentSession();
+      if (currentSession) {
+        void sessionTopicManager
+          .resolveTopicForSession(
+            currentSession.id,
+            currentSession.directory || directory,
+            currentSession.title,
+          )
+          .catch((error) => {
+            logger.error("[Bot] Failed to resolve session topic:", error);
+          });
+      }
     }
 
     summaryAggregator.setOnCleared(() => {

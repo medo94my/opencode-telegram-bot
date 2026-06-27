@@ -19,7 +19,9 @@ function getEnvVar(key: string, required: boolean = true): string {
   return value || "";
 }
 
-function getOptionalPositiveIntEnvVar(key: string, defaultValue: number): number {
+function getOptionalPositiveIntEnvVar(key: string, defaultValue: number): number;
+function getOptionalPositiveIntEnvVar(key: string, defaultValue: null): number | null;
+function getOptionalPositiveIntEnvVar(key: string, defaultValue: number | null): number | null {
   const value = getEnvVar(key, false);
 
   if (!value) {
@@ -115,6 +117,9 @@ function getOptionalTtsProviderEnvVar(key: string, defaultValue: TtsProvider): T
 export function buildTelegramConfig(): {
   token: string;
   allowedUserId: number;
+  channelId: string | null;
+  forumChatId: string | null;
+  forumTopicId: number | null;
   proxyUrl: string;
   apiRoot: string;
   proxySecret: string;
@@ -144,6 +149,9 @@ export function buildTelegramConfig(): {
   return {
     token: getEnvVar("TELEGRAM_BOT_TOKEN"),
     allowedUserId: parseInt(getEnvVar("TELEGRAM_ALLOWED_USER_ID"), 10),
+    channelId: getEnvVar("TELEGRAM_CHANNEL_ID", false) || null,
+    forumChatId: getEnvVar("TELEGRAM_FORUM_CHAT_ID", false) || null,
+    forumTopicId: getOptionalPositiveIntEnvVar("TELEGRAM_FORUM_TOPIC_ID", null),
     proxyUrl,
     apiRoot,
     proxySecret,

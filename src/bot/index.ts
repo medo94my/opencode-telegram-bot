@@ -61,6 +61,20 @@ export function createBot(): Bot<Context> {
 
     if (restored) {
       logger.info(`[Bot] Restored followed session after OpenCode ready: reason=${reason}`);
+
+      // Ensure forum topic is resolved (may have been missed during ensureEventSubscription
+      // if the session wasn't set as "current" yet)
+      if (config.telegram.forumChatId) {
+        const session = getCurrentSession();
+        if (session && !sessionTopicManager.lookupTopicId(session.id)) {
+          sessionTopicManager
+            .resolveTopicForSession(session.id, session.directory, session.title || "")
+            .catch((err) => {
+              logger.error("[Bot] Failed to resolve topic for restored session:", err);
+            });
+        }
+      }
+
       return;
     }
 

@@ -122,16 +122,26 @@ export function createBot(): Bot<Context> {
         method === "editMessageText" ||
         method === "editMessageCaption")
     ) {
-      const session = getCurrentSession();
-      if (session) {
-        const topicId = sessionTopicManager.lookupTopicId(session.id);
-        if (topicId) {
-          const p = payload as Record<string, unknown>;
-          p.chat_id = Number(config.telegram.forumChatId);
-          p.message_thread_id = topicId;
-          logger.debug(
-            `[Bot API] Routed ${method} to forum chat ${p.chat_id} topic ${topicId}`,
-          );
+      const p = payload as Record<string, unknown>;
+
+      // If message_thread_id is already set (e.g., from scheduled task delivery),
+      // respect the explicit topic. Only override chat_id to the forum.
+      if (p.message_thread_id) {
+        p.chat_id = Number(config.telegram.forumChatId);
+        logger.debug(
+          `[Bot API] Routed ${method} to forum chat ${p.chat_id} topic ${p.message_thread_id} (explicit)`,
+        );
+      } else {
+        const session = getCurrentSession();
+        if (session) {
+          const topicId = sessionTopicManager.lookupTopicId(session.id);
+          if (topicId) {
+            p.chat_id = Number(config.telegram.forumChatId);
+            p.message_thread_id = topicId;
+            logger.debug(
+              `[Bot API] Routed ${method} to forum chat ${p.chat_id} topic ${topicId}`,
+            );
+          }
         }
       }
     }

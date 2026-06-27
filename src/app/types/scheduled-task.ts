@@ -25,6 +25,8 @@ export interface ScheduledTaskBase {
   runCount: number;
   lastStatus: ScheduledTaskStatus;
   lastError: string | null;
+  /** Session ID this task is associated with, if any. Used for routing delivery to the session's forum topic. */
+  sessionId?: string | null;
 }
 
 export interface ScheduledCronTask extends ScheduledTaskBase {
@@ -112,4 +114,6 @@ export interface QueuedScheduledTaskDelivery {
   notificationText: string;
   resultText?: string;
   footerText?: string;
+  /** Session ID this delivery is associated with, for forum topic routing. */
+  sessionId?: string | null;
 }

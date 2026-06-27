@@ -16,6 +16,7 @@ import {
   updateScheduledTask,
 } from "../stores/scheduled-task-store.js";
 import type { QueuedScheduledTaskDelivery, ScheduledTask } from "../types/scheduled-task.js";
+import { getTopicStore } from "../stores/topic-store.js";
 
 const MAX_TIMER_DELAY_MS = 2_147_483_647;
 const TASK_DESCRIPTION_PREVIEW_LENGTH = 64;
@@ -67,6 +68,7 @@ function buildSuccessDelivery(
       modelID: task.model.modelID,
       elapsedMs: calculateElapsedMs(startedAt, runAt),
     }),
+    sessionId: task.sessionId,
   };
 }
 
@@ -85,6 +87,7 @@ function buildErrorDelivery(
       description: normalizeTaskPrompt(task.prompt),
       error: errorMessage,
     }),
+    sessionId: task.sessionId,
   };
 }
 
@@ -464,7 +467,29 @@ export class ScheduledTaskRuntime {
         return await this.deliverySender.send(delivery);
       }
 
-      await this.botApi.sendMessage(this.chatId, delivery.notificationText);
+      // Route to session's forum topic if the task has a session association
+      const sendOptions: Record<string, unknown> = {};
+      if (delivery.sessionId && config.telegram.forumChatId) {
+        const store = getTopicStore();
+        const topicId = store.getTopicId(delivery.sessionId);
+        if (topicId) {
+          sendOptions.chat_id = Number(config.telegram.forumChatId);
+          sendOptions.message_thread_id = topicId;
+          logger.debug(
+            `[ScheduledTaskRuntime] Routing delivery to forum topic ${topicId} for session=${delivery.sessionId}`,
+          );
+        }
+      }
+
+      if (sendOptions.message_thread_id) {
+        await this.botApi.sendMessage(
+          sendOptions.chat_id as number,
+          delivery.notificationText,
+          sendOptions,
+        );
+      } else {
+        await this.botApi.sendMessage(this.chatId, delivery.notificationText);
+      }
 
       return true;
     } catch (error) {

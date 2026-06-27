@@ -426,28 +426,47 @@ class EventSubscriptionService implements BotEventSubscriptionService {
             await this.finalizeCompactProgress(sessionId);
           }
 
-          await finalizeAssistantResponse({
-            sessionId,
-            messageId,
-            messageText,
-            responseStreamer: this.responseStreamer,
-            flushPendingServiceMessages: () =>
-              Promise.all([
-                this.toolMessageBatcher.flushSession(sessionId, "assistant_message_completed"),
-                this.toolCallStreamer.breakSession(sessionId, "assistant_message_completed"),
-              ]).then(() => undefined),
-            prepareStreamingPayload: this.prepareFinalStreamingPayload,
-            renderFinalParts: (text) => renderAssistantFinalPartsSafe(text),
-            getReplyKeyboard: this.getCurrentReplyKeyboard,
-            sendRenderedPart: async (part, options) => {
-              await sendRenderedBotPart({
-                api: botApi,
-                chatId,
-                part,
-                options: options as Parameters<typeof sendBotText>[0]["options"],
-              });
-            },
-          });
+            const useForumTopics = !!config.telegram.forumChatId;
+
+            const completionResult = await finalizeAssistantResponse({
+              sessionId,
+              messageId,
+              messageText,
+              responseStreamer: this.responseStreamer,
+              flushPendingServiceMessages: () =>
+                Promise.all([
+                  this.toolMessageBatcher.flushSession(sessionId, "assistant_message_completed"),
+                  this.toolCallStreamer.breakSession(sessionId, "assistant_message_completed"),
+                ]).then(() => undefined),
+              prepareStreamingPayload: this.prepareFinalStreamingPayload,
+              renderFinalParts: (text) => renderAssistantFinalPartsSafe(text),
+              getReplyKeyboard: () => {
+                const baseKeyboard = keyboardManager.getKeyboard();
+                if (!useForumTopics) return baseKeyboard;
+                // Add plan submission button to completed assistant messages
+                const existingInline = (baseKeyboard as { inline_keyboard?: unknown[][] })
+                  ?.inline_keyboard;
+                return {
+                  inline_keyboard: [
+                    ...(existingInline || []),
+                    [
+                      {
+                        text: "📋 Submit as Plan",
+                        callback_data: `plan_submit:${sessionId}`,
+                      },
+                    ],
+                  ],
+                };
+              },
+              sendRenderedPart: async (part, options) => {
+                await sendRenderedBotPart({
+                  api: botApi,
+                  chatId,
+                  part,
+                  options: options as Parameters<typeof sendBotText>[0]["options"],
+                });
+              },
+            });
 
           await sendTtsResponseForSession({
             api: botApi,

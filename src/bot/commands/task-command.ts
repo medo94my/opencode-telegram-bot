@@ -16,6 +16,7 @@ import {
   type ParsedTaskSchedule,
   type ScheduledTask,
 } from "../../app/types/scheduled-task.js";
+import { getCurrentSession } from "../../app/services/session-service.js";
 import { logger } from "../../utils/logger.js";
 
 const TASK_PROMPT_PREVIEW_LENGTH = 100;
@@ -235,6 +236,8 @@ function buildScheduledTask(
   parsedSchedule: ParsedTaskSchedule,
   prompt: string,
 ): ScheduledTask {
+  const currentSession = getCurrentSession();
+
   const baseTask = {
     id: randomUUID(),
     projectId,
@@ -250,6 +253,7 @@ function buildScheduledTask(
     runCount: 0,
     lastStatus: "idle" as const,
     lastError: null,
+    sessionId: currentSession?.id ?? null,
   };
 
   if (parsedSchedule.kind === "cron") {

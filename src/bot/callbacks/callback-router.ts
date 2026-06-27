@@ -27,6 +27,11 @@ import {
   handleTaskCallback,
   handleTaskListCallback,
 } from "./scheduled-task-callback-handler.js";
+import {
+  handlePlanSubmit,
+  handlePlanApprove,
+  handlePlanReject,
+} from "./plan-callback-handler.js";
 import { handleTtsCallback } from "./tts-callback-handler.js";
 import { handleVariantSelect } from "./variant-selection-callback-handler.js";
 import { handleWorktreeCallback } from "./worktree-callback-handler.js";
@@ -95,9 +100,12 @@ export function registerCallbackRouter(bot: Bot<Context>, deps: CallbackRouterDe
         ensureEventSubscription: deps.ensureEventSubscription,
       });
       const handledMcps = await handleMcpsCallback(ctx);
+      const handledPlanSubmit = await handlePlanSubmit(ctx);
+      const handledPlanApprove = await handlePlanApprove(ctx);
+      const handledPlanReject = await handlePlanReject(ctx);
 
       logger.debug(
-        `[Bot] Callback handled: backgroundSession=${handledBackgroundSession}, inlineCancel=${handledInlineCancel}, session=${handledSession}, project=${handledProject}, worktree=${handledWorktree}, open=${handledOpen}, ls=${handledLs}, question=${handledQuestion}, permission=${handledPermission}, agent=${handledAgent}, modelSearch=${handledModelSearch}, modelSearchResults=${handledModelSearchResults}, model=${handledModel}, variant=${handledVariant}, tts=${handledTts}, compactConfirm=${handledCompactConfirm}, task=${handledTask}, taskList=${handledTaskList}, rename=${handledRenameCancel}, commands=${handledCommands}, messages=${handledMessages}, skills=${handledSkills}, mcps=${handledMcps}`,
+        `[Bot] Callback handled: backgroundSession=${handledBackgroundSession}, inlineCancel=${handledInlineCancel}, session=${handledSession}, project=${handledProject}, worktree=${handledWorktree}, open=${handledOpen}, ls=${handledLs}, question=${handledQuestion}, permission=${handledPermission}, agent=${handledAgent}, modelSearch=${handledModelSearch}, modelSearchResults=${handledModelSearchResults}, model=${handledModel}, variant=${handledVariant}, tts=${handledTts}, compactConfirm=${handledCompactConfirm}, task=${handledTask}, taskList=${handledTaskList}, rename=${handledRenameCancel}, commands=${handledCommands}, messages=${handledMessages}, skills=${handledSkills}, mcps=${handledMcps}, planSubmit=${handledPlanSubmit}, planApprove=${handledPlanApprove}, planReject=${handledPlanReject}`,
       );
 
       if (
@@ -123,7 +131,10 @@ export function registerCallbackRouter(bot: Bot<Context>, deps: CallbackRouterDe
         !handledCommands &&
         !handledMessages &&
         !handledSkills &&
-        !handledMcps
+        !handledMcps &&
+        !handledPlanSubmit &&
+        !handledPlanApprove &&
+        !handledPlanReject
       ) {
         logger.debug("Unknown callback query:", ctx.callbackQuery?.data);
         await ctx.answerCallbackQuery({ text: t("callback.unknown_command") });

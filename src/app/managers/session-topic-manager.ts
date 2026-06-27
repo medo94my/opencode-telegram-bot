@@ -94,6 +94,20 @@ export class SessionTopicManager {
     }
   }
 
+  /** Create a dedicated forum topic not tied to any session. */
+  async createDedicatedTopic(title: string): Promise<number> {
+    if (!this.bot || !this.forumChatId) {
+      throw new Error("SessionTopicManager not initialized");
+    }
+    const sanitized = sanitizeTopicTitle(title);
+    const result = await this.bot.api.createForumTopic(this.forumChatId, sanitized);
+    const topicId = result.message_thread_id;
+    logger.info(
+      `[SessionTopicManager] Created dedicated topic ${topicId} ("${sanitized}")`,
+    );
+    return topicId;
+  }
+
   /** Get the currently active topic ID (cached). */
   getCurrentTopicId(): number | null {
     return this.currentTopicId;

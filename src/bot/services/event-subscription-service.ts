@@ -317,15 +317,15 @@ class EventSubscriptionService implements BotEventSubscriptionService {
     if (config.telegram.forumChatId) {
       const currentSession = getCurrentSession();
       if (currentSession) {
-        void sessionTopicManager
-          .resolveTopicForSession(
+        try {
+          await sessionTopicManager.resolveTopicForSession(
             currentSession.id,
             currentSession.directory || directory,
             currentSession.title,
-          )
-          .catch((error) => {
-            logger.error("[Bot] Failed to resolve session topic:", error);
-          });
+          );
+        } catch (error) {
+          logger.error("[Bot] Failed to resolve session topic:", error);
+        }
       }
     }
 
@@ -428,7 +428,7 @@ class EventSubscriptionService implements BotEventSubscriptionService {
 
             const useForumTopics = !!config.telegram.forumChatId;
 
-            const completionResult = await finalizeAssistantResponse({
+            await finalizeAssistantResponse({
               sessionId,
               messageId,
               messageText,

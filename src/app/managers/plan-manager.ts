@@ -16,6 +16,12 @@ class PlanManager {
   private messageIndex = new Map<number, string>(); // approvalMessageId -> planId
 
   createPlan(sessionId: string, content: string): Plan {
+    // Don't allow multiple pending plans for the same session
+    const existing = this.getPlanBySessionId(sessionId);
+    if (existing && existing.status === "pending_review") {
+      throw new Error("A plan is already pending review for this session");
+    }
+
     const id = randomUUID();
     const plan: Plan = {
       id,
@@ -69,14 +75,6 @@ class PlanManager {
     }
   }
 
-  getActivePlan(): Plan | null {
-    for (const plan of this.plans.values()) {
-      if (plan.status === "pending_review" || plan.status === "approved") {
-        return plan;
-      }
-    }
-    return null;
-  }
 }
 
 export const planManager = new PlanManager();

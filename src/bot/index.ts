@@ -123,14 +123,22 @@ export function createBot(): Bot<Context> {
         method === "editMessageCaption")
     ) {
       const p = payload as Record<string, unknown>;
+      const isEditMethod = method === "editMessageText" || method === "editMessageCaption";
 
-      // If message_thread_id is already set (e.g., from scheduled task delivery),
-      // respect the explicit topic. Only override chat_id to the forum.
-      if (p.message_thread_id) {
+      // For edit methods: only override chat_id (message_thread_id is not valid for edit APIs)
+      // For explicit message_thread_id: keep it, just redirect chat_id to forum
+      // Otherwise: inject current session's topic
+      if (isEditMethod || p.message_thread_id) {
         p.chat_id = Number(config.telegram.forumChatId);
-        logger.debug(
-          `[Bot API] Routed ${method} to forum chat ${p.chat_id} topic ${p.message_thread_id} (explicit)`,
-        );
+        if (isEditMethod) {
+          logger.debug(
+            `[Bot API] Routed ${method} to forum chat ${p.chat_id} (edit method, skipped message_thread_id)`,
+          );
+        } else {
+          logger.debug(
+            `[Bot API] Routed ${method} to forum chat ${p.chat_id} topic ${p.message_thread_id} (explicit)`,
+          );
+        }
       } else {
         const session = getCurrentSession();
         if (session) {

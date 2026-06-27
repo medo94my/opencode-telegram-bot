@@ -11,10 +11,16 @@ export async function handlePlanSubmit(ctx: Context): Promise<boolean> {
   if (!data?.startsWith("plan_submit:")) return false;
 
   const sessionId = data.slice("plan_submit:".length);
-  if (!sessionId) return false;
+  if (!sessionId) {
+    await ctx.answerCallbackQuery({ text: "Invalid plan submission." }).catch(() => {});
+    return true;
+  }
 
   const message = ctx.callbackQuery?.message;
-  if (!message) return false;
+  if (!message) {
+    await ctx.answerCallbackQuery({ text: "Plan submission failed: message not found." }).catch(() => {});
+    return true;
+  }
 
   // Get plan content from the message
   let content = "";
@@ -26,6 +32,11 @@ export async function handlePlanSubmit(ctx: Context): Promise<boolean> {
 
   if (!content) {
     await ctx.answerCallbackQuery({ text: "No plan content found in message." });
+    return true;
+  }
+
+  if (content.length < 50) {
+    await ctx.answerCallbackQuery({ text: "Message too short to be a plan (min 50 chars)." });
     return true;
   }
 
@@ -88,10 +99,8 @@ export async function handlePlanApprove(ctx: Context): Promise<boolean> {
   try {
     planManager.updateStatus(planId, "approved");
 
-    // Create a monitoring topic for this session
-    const topicId = await sessionTopicManager.resolveTopicForSession(
-      plan.sessionId,
-      plan.sessionId,
+    // Create a dedicated monitoring topic for this plan
+    const topicId = await sessionTopicManager.createDedicatedTopic(
       `📊 Monitor: ${plan.sessionId.slice(0, 8)}`,
     );
     planManager.setMonitoringTopic(planId, topicId);

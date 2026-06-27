@@ -4,6 +4,7 @@ import type {
   QueuedScheduledTaskDelivery,
 } from "../../app/types/scheduled-task.js";
 import type { ScheduledTaskDeliverySender } from "../../app/services/scheduled-task-runtime-service.js";
+import { getTopicStore } from "../../app/stores/topic-store.js";
 import {
   escapePlainTextForTelegramMarkdownV2,
   formatSummaryWithMode,
@@ -56,6 +57,14 @@ export function createScheduledTaskDeliverySender(
 ): ScheduledTaskDeliverySender {
   return {
     async send(delivery) {
+      // Route to session's forum topic if the task has a session association
+      const forumChatId = config.telegram.forumChatId ? Number(config.telegram.forumChatId) : null;
+      const deliveryChatId = delivery.sessionId && forumChatId ? forumChatId : chatId;
+      const threadId =
+        delivery.sessionId && forumChatId
+          ? getTopicStore().getTopicId(delivery.sessionId)
+          : null;
+
       const messageParts =
         delivery.status === "success"
           ? buildScheduledTaskSuccessMessageParts(delivery)
@@ -68,22 +77,51 @@ export function createScheduledTaskDeliverySender(
           : getSilentDeliveryOptions();
 
       for (const part of messageParts) {
+        const mergedOptions =
+          threadId && "options" in resultDeliveryOptions
+            ? {
+                options: {
+                  ...(
+                    resultDeliveryOptions as {
+                      options: Record<string, unknown>;
+                    }
+                  ).options,
+                  message_thread_id: threadId,
+                },
+              }
+            : threadId
+              ? { options: { message_thread_id: threadId } }
+              : resultDeliveryOptions;
+
         await sendBotText({
           api,
-          chatId,
+          chatId: deliveryChatId,
           text: part,
           format,
-          ...resultDeliveryOptions,
+          ...mergedOptions,
         });
       }
 
       if (delivery.status === "success" && delivery.footerText) {
+        const silentOptions = getSilentDeliveryOptions();
+        const footerOptions =
+          threadId && "options" in silentOptions
+            ? {
+                options: {
+                  ...(silentOptions as { options: Record<string, unknown> }).options,
+                  message_thread_id: threadId,
+                },
+              }
+            : threadId
+              ? { options: { message_thread_id: threadId } }
+              : silentOptions;
+
         await sendBotText({
           api,
-          chatId,
+          chatId: deliveryChatId,
           text: delivery.footerText,
           format: "raw",
-          ...getSilentDeliveryOptions(),
+          ...footerOptions,
         });
       }
 
